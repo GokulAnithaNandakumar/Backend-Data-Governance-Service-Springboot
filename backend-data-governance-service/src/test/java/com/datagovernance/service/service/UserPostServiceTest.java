@@ -1,10 +1,10 @@
 package com.datagovernance.service.service;
 
+import com.datagovernance.service.document.UserPost;
 import com.datagovernance.service.dto.CreatePostRequest;
 import com.datagovernance.service.dto.UserPostResponse;
 import com.datagovernance.service.exception.BusinessRuleViolationException;
 import com.datagovernance.service.exception.ResourceNotFoundException;
-import com.datagovernance.service.document.UserPost;
 import com.datagovernance.service.repository.UserPostRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,15 +20,15 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for UserPostService
- * Tests all business rules related to FR8, FR9, and FR10
+ * Comprehensive Unit Tests for UserPostService - Based on Postman API
+ * Tests FR8-FR10: User Post Management
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("User Post Service Unit Tests")
+@DisplayName("UserPostService Tests - FR8-FR10")
 class UserPostServiceTest {
 
     @Mock
@@ -40,112 +40,197 @@ class UserPostServiceTest {
     @InjectMocks
     private UserPostService userPostService;
 
-    private CreatePostRequest validPostRequest;
-    private UserPost existingPost;
-    private String activeUserId = "active-user-id";
-    private String postId = "existing-post-id";
+    private CreatePostRequest createPostRequest;
+    private UserPost userPost;
+    private String userId = "test-user-id";
+    private String postId = "test-post-id";
 
     @BeforeEach
     void setUp() {
-        validPostRequest = new CreatePostRequest();
-        validPostRequest.setTitle("Test Post Title");
-        validPostRequest.setContent("This is a test post content");
-        validPostRequest.setTags(Arrays.asList("test"));
-        validPostRequest.setIsPublic(true);
+        // Create test data based on actual structure
+        createPostRequest = new CreatePostRequest();
+        createPostRequest.setTitle("Understanding Spring Boot Microservices");
+        createPostRequest
+                .setContent("In this post, I'll explain how to build scalable microservices using Spring Boot...");
+        createPostRequest.setTags(Arrays.asList("Spring Boot", "Microservices", "Java"));
+        createPostRequest.setIsPublic(true);
+        createPostRequest.setStatus("PUBLISHED");
 
-        existingPost = new UserPost();
-        existingPost.setId(postId);
-        existingPost.setUserId(activeUserId);
-        existingPost.setTitle("Existing Post");
-        existingPost.setContent("Existing content");
-        existingPost.setDeleted(false);
-        existingPost.setCreatedAt(LocalDateTime.now());
+        userPost = new UserPost();
+        userPost.setId(postId);
+        userPost.setUserId(userId);
+        userPost.setTitle("Understanding Spring Boot Microservices");
+        userPost.setContent("In this post, I'll explain how to build scalable microservices using Spring Boot...");
+        userPost.setTags(Arrays.asList("Spring Boot", "Microservices", "Java"));
+        userPost.setPublic(true);
+        userPost.setStatus("PUBLISHED");
+        userPost.setDeleted(false);
+        userPost.setCreatedAt(LocalDateTime.now());
+        userPost.setUpdatedAt(LocalDateTime.now());
     }
 
+    // ==========================================
+    // FR8: CREATE POST - POST /api/v1/users/{userId}/posts
+    // ==========================================
+
     @Test
-    @DisplayName("FR8: Create Post - Success")
+    @DisplayName("FR8: Create Post - Success (201 Created)")
     void testCreatePost_Success() {
         // Arrange
-        when(userProfileService.isUserActiveById(activeUserId)).thenReturn(true);
-        when(userPostRepository.save(any(UserPost.class))).thenReturn(existingPost);
+        when(userProfileService.isUserActiveById(userId)).thenReturn(true);
+        when(userPostRepository.save(any(UserPost.class))).thenReturn(userPost);
 
         // Act
-        UserPostResponse response = userPostService.createPost(activeUserId, validPostRequest);
+        UserPostResponse response = userPostService.createPost(userId, createPostRequest);
 
         // Assert
         assertNotNull(response);
-        assertEquals(activeUserId, response.getUserId());
-        verify(userProfileService).isUserActiveById(activeUserId);
+        assertEquals(postId, response.getId());
+        assertEquals("Understanding Spring Boot Microservices", response.getTitle());
+        assertEquals(userId, response.getUserId());
+        assertEquals(3, response.getTags().size());
+        assertTrue(response.getTags().contains("Spring Boot"));
+        assertTrue(response.isPublic());
+        assertEquals("PUBLISHED", response.getStatus());
+
+        verify(userProfileService).isUserActiveById(userId);
         verify(userPostRepository).save(any(UserPost.class));
     }
 
     @Test
-    @DisplayName("FR8: Create Post - User Not Active")
-    void testCreatePost_UserNotActive() {
+    @DisplayName("FR8: Create Post - Inactive User (Exception)")
+    void testCreatePost_InactiveUser() {
         // Arrange
-        when(userProfileService.isUserActiveById(activeUserId)).thenReturn(false);
+        when(userProfileService.isUserActiveById(userId)).thenReturn(false);
 
         // Act & Assert
-        BusinessRuleViolationException exception = assertThrows(
-                BusinessRuleViolationException.class,
-                () -> userPostService.createPost(activeUserId, validPostRequest));
+        BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
+            userPostService.createPost(userId, createPostRequest);
+        });
 
-        assertEquals("Cannot create post for inactive or non-existent user", exception.getMessage());
-        verify(userPostRepository, never()).save(any());
+        assertTrue(exception.getMessage().contains("inactive"));
+        verify(userProfileService).isUserActiveById(userId);
+        verify(userPostRepository, never()).save(any(UserPost.class));
     }
 
     @Test
-    @DisplayName("FR9: Get Posts by User ID - Success")
-    void testGetPostsByUserId_Success() {
+    @DisplayName("FR8: Create Post - Draft Status")
+    void testCreatePost_DraftStatus() {
         // Arrange
-        List<UserPost> posts = Arrays.asList(existingPost);
-        when(userPostRepository.findByUserIdAndNotDeleted(activeUserId)).thenReturn(posts);
+        createPostRequest.setStatus("DRAFT");
+        createPostRequest.setIsPublic(false);
+        when(userProfileService.isUserActiveById(userId)).thenReturn(true);
+        when(userPostRepository.save(any(UserPost.class))).thenReturn(userPost);
 
         // Act
-        List<UserPostResponse> responses = userPostService.getPostsByUserId(activeUserId);
+        UserPostResponse response = userPostService.createPost(userId, createPostRequest);
+
+        // Assert
+        assertNotNull(response);
+        verify(userPostRepository).save(argThat(post -> post.getStatus().equals("DRAFT") && !post.isPublic()));
+    }
+
+    // ==========================================
+    // FR9: GET USER POSTS - GET /api/v1/users/{userId}/posts
+    // ==========================================
+
+    @Test
+    @DisplayName("FR9: Get User Posts - Success (200 OK)")
+    void testGetUserPosts_Success() {
+        // Arrange
+        UserPost post1 = createTestPost("post1", "First Post", "Content 1");
+        UserPost post2 = createTestPost("post2", "Second Post", "Content 2");
+        List<UserPost> posts = Arrays.asList(post1, post2);
+
+        when(userProfileService.isUserActiveById(userId)).thenReturn(true);
+        when(userPostRepository.findByUserIdAndNotDeleted(userId)).thenReturn(posts);
+
+        // Act
+        List<UserPostResponse> responses = userPostService.getPostsByUserId(userId);
 
         // Assert
         assertNotNull(responses);
-        assertEquals(1, responses.size());
-        assertEquals(postId, responses.get(0).getId());
-        verify(userPostRepository).findByUserIdAndNotDeleted(activeUserId);
+        assertEquals(2, responses.size());
+        assertEquals("First Post", responses.get(0).getTitle());
+        assertEquals("Second Post", responses.get(1).getTitle());
+
+        verify(userProfileService).isUserActiveById(userId);
+        verify(userPostRepository).findByUserIdAndNotDeleted(userId);
     }
 
     @Test
-    @DisplayName("FR10: Soft Delete Post - Success")
-    void testSoftDeletePost_Success() {
+    @DisplayName("FR9: Get Posts - Inactive User (404 Not Found)")
+    void testGetUserPosts_InactiveUser() {
         // Arrange
-        when(userPostRepository.findById(postId)).thenReturn(Optional.of(existingPost));
-        when(userPostRepository.save(any(UserPost.class))).thenReturn(existingPost);
-
-        // Act
-        assertDoesNotThrow(() -> userPostService.softDeletePost(postId));
-
-        // Assert
-        verify(userPostRepository).findById(postId);
-        verify(userPostRepository).save(any(UserPost.class));
-    }
-
-    @Test
-    @DisplayName("FR10: Soft Delete Post - Post Not Found")
-    void testSoftDeletePost_NotFound() {
-        // Arrange
-        when(userPostRepository.findById(postId)).thenReturn(Optional.empty());
+        when(userProfileService.isUserActiveById(userId)).thenReturn(false);
 
         // Act & Assert
-        ResourceNotFoundException exception = assertThrows(
-                ResourceNotFoundException.class,
-                () -> userPostService.softDeletePost(postId));
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            userPostService.getPostsByUserId(userId);
+        });
 
-        assertEquals("Post not found with ID: " + postId, exception.getMessage());
-        verify(userPostRepository, never()).save(any());
+        assertTrue(exception.getMessage().contains("not found"));
+        verify(userProfileService).isUserActiveById(userId);
+        verify(userPostRepository, never()).findByUserIdAndNotDeleted(anyString());
     }
 
     @Test
-    @DisplayName("Get Post by ID - Success")
+    @DisplayName("FR9: Get Posts - Empty List for User with No Posts")
+    void testGetUserPosts_EmptyList() {
+        // Arrange
+        when(userProfileService.isUserActiveById(userId)).thenReturn(true);
+        when(userPostRepository.findByUserIdAndNotDeleted(userId)).thenReturn(Arrays.asList());
+
+        // Act
+        List<UserPostResponse> responses = userPostService.getPostsByUserId(userId);
+
+        // Assert
+        assertNotNull(responses);
+        assertTrue(responses.isEmpty());
+    }
+
+    // ==========================================
+    // FR10: SOFT DELETE POST - DELETE /api/v1/posts/{postId}
+    // ==========================================
+
+    @Test
+    @DisplayName("FR10: Soft Delete Post - Success (204 No Content)")
+    void testSoftDeletePost_Success() {
+        // Arrange
+        when(userPostRepository.findByIdAndNotDeleted(postId)).thenReturn(Optional.of(userPost));
+        when(userPostRepository.save(any(UserPost.class))).thenReturn(userPost);
+
+        // Act
+        userPostService.softDeletePost(postId);
+
+        // Assert
+        verify(userPostRepository).findByIdAndNotDeleted(postId);
+        verify(userPostRepository).save(argThat(post -> post.isDeleted() && post.getDeletedAt() != null));
+    }
+
+    @Test
+    @DisplayName("FR10: Soft Delete - Non-existent Post (404 Not Found)")
+    void testSoftDeletePost_NotFound() {
+        // Arrange
+        when(userPostRepository.findByIdAndNotDeleted("nonexistent-post")).thenReturn(Optional.empty());
+
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            userPostService.softDeletePost("nonexistent-post");
+        });
+
+        assertTrue(exception.getMessage().contains("not found"));
+    }
+
+    // ==========================================
+    // GET SINGLE POST - Additional Method
+    // ==========================================
+
+    @Test
+    @DisplayName("Get Post by ID - Success (200 OK)")
     void testGetPostById_Success() {
         // Arrange
-        when(userPostRepository.findByIdAndNotDeleted(postId)).thenReturn(Optional.of(existingPost));
+        when(userPostRepository.findByIdAndNotDeleted(postId)).thenReturn(Optional.of(userPost));
 
         // Act
         UserPostResponse response = userPostService.getPostById(postId);
@@ -153,20 +238,108 @@ class UserPostServiceTest {
         // Assert
         assertNotNull(response);
         assertEquals(postId, response.getId());
-        verify(userPostRepository).findByIdAndNotDeleted(postId);
+        assertEquals("Understanding Spring Boot Microservices", response.getTitle());
+        assertEquals(userId, response.getUserId());
     }
 
     @Test
-    @DisplayName("Get Post by ID - Not Found")
+    @DisplayName("Get Post by ID - Not Found (404 Not Found)")
     void testGetPostById_NotFound() {
         // Arrange
-        when(userPostRepository.findByIdAndNotDeleted(postId)).thenReturn(Optional.empty());
+        when(userPostRepository.findByIdAndNotDeleted("nonexistent-post")).thenReturn(Optional.empty());
 
         // Act & Assert
-        ResourceNotFoundException exception = assertThrows(
-                ResourceNotFoundException.class,
-                () -> userPostService.getPostById(postId));
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            userPostService.getPostById("nonexistent-post");
+        });
 
-        assertEquals("Post not found with ID: " + postId, exception.getMessage());
+        assertTrue(exception.getMessage().contains("not found"));
+    }
+
+    // ==========================================
+    // HELPER METHODS AND EDGE CASES
+    // ==========================================
+
+    private UserPost createTestPost(String id, String title, String content) {
+        UserPost post = new UserPost();
+        post.setId(id);
+        post.setUserId(userId);
+        post.setTitle(title);
+        post.setContent(content);
+        post.setTags(Arrays.asList("Test"));
+        post.setPublic(true);
+        post.setStatus("PUBLISHED");
+        post.setDeleted(false);
+        post.setCreatedAt(LocalDateTime.now());
+        post.setUpdatedAt(LocalDateTime.now());
+        return post;
+    }
+
+    @Test
+    @DisplayName("Edge Case: Create Post with Empty Tags List")
+    void testCreatePost_EmptyTags() {
+        // Arrange
+        createPostRequest.setTags(Arrays.asList());
+
+        when(userProfileService.isUserActiveById(userId)).thenReturn(true);
+        when(userPostRepository.save(any(UserPost.class))).thenReturn(userPost);
+
+        // Act
+        UserPostResponse response = userPostService.createPost(userId, createPostRequest);
+
+        // Assert
+        assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("Edge Case: Create Private Post")
+    void testCreatePost_PrivatePost() {
+        // Arrange
+        createPostRequest.setIsPublic(false);
+
+        when(userProfileService.isUserActiveById(userId)).thenReturn(true);
+        when(userPostRepository.save(any(UserPost.class))).thenReturn(userPost);
+
+        // Act
+        UserPostResponse response = userPostService.createPost(userId, createPostRequest);
+
+        // Assert
+        assertNotNull(response);
+        verify(userPostRepository).save(argThat(post -> !post.isPublic()));
+    }
+
+    @Test
+    @DisplayName("Edge Case: Post with Image URLs")
+    void testCreatePost_WithImageUrls() {
+        // Arrange
+        createPostRequest
+                .setImageUrls(Arrays.asList("https://example.com/image1.jpg", "https://example.com/image2.jpg"));
+
+        when(userProfileService.isUserActiveById(userId)).thenReturn(true);
+        when(userPostRepository.save(any(UserPost.class))).thenReturn(userPost);
+
+        // Act
+        UserPostResponse response = userPostService.createPost(userId, createPostRequest);
+
+        // Assert
+        assertNotNull(response);
+        verify(userPostRepository)
+                .save(argThat(post -> post.getImageUrls() != null && post.getImageUrls().size() == 2));
+    }
+
+    @Test
+    @DisplayName("Engagement: Verify Initial Counts")
+    void testCreatePost_InitialEngagementCounts() {
+        // Arrange
+        when(userProfileService.isUserActiveById(userId)).thenReturn(true);
+        when(userPostRepository.save(any(UserPost.class))).thenReturn(userPost);
+
+        // Act
+        UserPostResponse response = userPostService.createPost(userId, createPostRequest);
+
+        // Assert
+        assertEquals(0, response.getViewCount());
+        assertEquals(0, response.getLikeCount());
+        assertEquals(0, response.getCommentCount());
     }
 }

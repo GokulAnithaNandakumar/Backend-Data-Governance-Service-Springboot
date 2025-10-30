@@ -12,6 +12,7 @@ import com.datagovernance.service.repository.UserPostRepository;
 import com.datagovernance.service.repository.UserPreferencesRepository;
 import com.datagovernance.service.repository.UserProfileRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,14 +25,15 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for UserProfileService
+ * Comprehensive Unit Tests for UserProfileService - Based on Postman API
+ * Tests FR1-FR5: User Profile Management
  */
 @ExtendWith(MockitoExtension.class)
+@DisplayName("UserProfileService Tests - FR1-FR5")
 class UserProfileServiceTest {
 
     @Mock
@@ -47,183 +49,322 @@ class UserProfileServiceTest {
     private UserProfileService userProfileService;
 
     private CreateUserRequest createUserRequest;
+    private UpdateUserRequest updateUserRequest;
     private UserProfile userProfile;
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(userProfileService, "gracePeroidHours", 24);
-
+        // Create test data
         createUserRequest = new CreateUserRequest();
-        createUserRequest.setUsername("testuser");
-        createUserRequest.setEmail("test@example.com");
-        createUserRequest.setFirstName("Test");
-        createUserRequest.setLastName("User");
+        createUserRequest.setUsername("johndoe");
+        createUserRequest.setEmail("john@example.com");
+        createUserRequest.setFirstName("John");
+        createUserRequest.setLastName("Doe");
         createUserRequest.setRoles(Set.of(UserRole.USER));
+        createUserRequest.setBio("Software Developer and Tech Enthusiast");
+
+        updateUserRequest = new UpdateUserRequest();
+        updateUserRequest.setBio("Updated: Senior Software Developer");
+        updateUserRequest.setRoles(Set.of(UserRole.USER, UserRole.MODERATOR));
 
         userProfile = new UserProfile();
-        userProfile.setId("user123");
-        userProfile.setUsername("testuser");
-        userProfile.setEmail("test@example.com");
-        userProfile.setFirstName("Test");
-        userProfile.setLastName("User");
+        userProfile.setId("test-user-id");
+        userProfile.setUsername("johndoe");
+        userProfile.setEmail("john@example.com");
+        userProfile.setFirstName("John");
+        userProfile.setLastName("Doe");
+        userProfile.setBio("Software Developer and Tech Enthusiast");
         userProfile.setRoles(Set.of(UserRole.USER));
+        userProfile.setDeleted(false);
+        userProfile.setCreatedAt(LocalDateTime.now());
+        userProfile.setUpdatedAt(LocalDateTime.now());
     }
 
+    // ==========================================
+    // FR1: CREATE USER - POST /api/v1/users
+    // ==========================================
+
     @Test
-    void createUser_Success() {
-        // Given
-        when(userProfileRepository.existsByUsername(anyString())).thenReturn(false);
-        when(userProfileRepository.existsByEmail(anyString())).thenReturn(false);
+    @DisplayName("FR1: Create User - Success (201 Created)")
+    void testCreateUser_Success() {
+        // Arrange
+        when(userProfileRepository.existsByUsername("johndoe")).thenReturn(false);
+        when(userProfileRepository.existsByEmail("john@example.com")).thenReturn(false);
         when(userProfileRepository.save(any(UserProfile.class))).thenReturn(userProfile);
 
-        // When
+        // Act
         UserProfileResponse response = userProfileService.createUser(createUserRequest);
 
-        // Then
+        // Assert
         assertNotNull(response);
-        assertEquals("testuser", response.getUsername());
-        assertEquals("test@example.com", response.getEmail());
+        assertEquals("johndoe", response.getUsername());
+        assertEquals("john@example.com", response.getEmail());
+        assertEquals("John Doe", response.getFullName());
+        assertTrue(response.getRoles().contains(UserRole.USER));
+
+        verify(userProfileRepository).existsByUsername("johndoe");
+        verify(userProfileRepository).existsByEmail("john@example.com");
         verify(userProfileRepository).save(any(UserProfile.class));
     }
 
     @Test
-    void createUser_UsernameConflict() {
-        // Given
-        when(userProfileRepository.existsByUsername("testuser")).thenReturn(true);
+    @DisplayName("FR1: Create User - Duplicate Username (409 Conflict)")
+    void testCreateUser_DuplicateUsername() {
+        // Arrange
+        when(userProfileRepository.existsByUsername("johndoe")).thenReturn(true);
 
-        // When & Then
-        assertThrows(ResourceConflictException.class,
-                () -> userProfileService.createUser(createUserRequest));
+        // Act & Assert
+        ResourceConflictException exception = assertThrows(ResourceConflictException.class, () -> {
+            userProfileService.createUser(createUserRequest);
+        });
+
+        assertTrue(exception.getMessage().contains("already exists"));
+        verify(userProfileRepository).existsByUsername("johndoe");
+        verify(userProfileRepository, never()).save(any(UserProfile.class));
     }
 
     @Test
-    void createUser_EmailConflict() {
-        // Given
-        when(userProfileRepository.existsByUsername(anyString())).thenReturn(false);
-        when(userProfileRepository.existsByEmail("test@example.com")).thenReturn(true);
+    @DisplayName("FR1: Create User - Duplicate Email (409 Conflict)")
+    void testCreateUser_DuplicateEmail() {
+        // Arrange
+        when(userProfileRepository.existsByUsername("johndoe")).thenReturn(false);
+        when(userProfileRepository.existsByEmail("john@example.com")).thenReturn(true);
 
-        // When & Then
-        assertThrows(ResourceConflictException.class,
-                () -> userProfileService.createUser(createUserRequest));
+        // Act & Assert
+        ResourceConflictException exception = assertThrows(ResourceConflictException.class, () -> {
+            userProfileService.createUser(createUserRequest);
+        });
+
+        assertTrue(exception.getMessage().contains("already exists"));
+        verify(userProfileRepository).existsByEmail("john@example.com");
+        verify(userProfileRepository, never()).save(any(UserProfile.class));
     }
 
+    // ==========================================
+    // FR2: GET USER - GET /api/v1/users/{userId}
+    // ==========================================
+
     @Test
-    void getUserById_Success() {
-        // Given
-        when(userProfileRepository.findByIdAndNotDeleted("user123")).thenReturn(Optional.of(userProfile));
+    @DisplayName("FR2: Get User by ID - Success (200 OK)")
+    void testGetUserById_Success() {
+        // Arrange
+        when(userProfileRepository.findByIdAndNotDeleted("test-user-id")).thenReturn(Optional.of(userProfile));
 
-        // When
-        UserProfileResponse response = userProfileService.getUserById("user123");
+        // Act
+        UserProfileResponse response = userProfileService.getUserById("test-user-id");
 
-        // Then
+        // Assert
         assertNotNull(response);
-        assertEquals("user123", response.getId());
-        assertEquals("testuser", response.getUsername());
+        assertEquals("test-user-id", response.getId());
+        assertEquals("johndoe", response.getUsername());
+        assertEquals("John Doe", response.getFullName());
+
+        verify(userProfileRepository).findByIdAndNotDeleted("test-user-id");
     }
 
     @Test
-    void getUserById_NotFound() {
-        // Given
-        when(userProfileRepository.findByIdAndNotDeleted("nonexistent")).thenReturn(Optional.empty());
+    @DisplayName("FR2: Get User - Non-existent User (404 Not Found)")
+    void testGetUserById_NotFound() {
+        // Arrange
+        when(userProfileRepository.findByIdAndNotDeleted("nonexistent-user-id")).thenReturn(Optional.empty());
 
-        // When & Then
-        assertThrows(ResourceNotFoundException.class,
-                () -> userProfileService.getUserById("nonexistent"));
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            userProfileService.getUserById("nonexistent-user-id");
+        });
+
+        assertTrue(exception.getMessage().contains("not found"));
     }
 
-    @Test
-    void updateUser_Success() {
-        // Given
-        UpdateUserRequest updateRequest = new UpdateUserRequest();
-        updateRequest.setFirstName("Updated");
-        updateRequest.setLastName("Name");
+    // ==========================================
+    // FR3: UPDATE USER - PUT /api/v1/users/{userId}
+    // ==========================================
 
-        when(userProfileRepository.findByIdAndNotDeleted("user123")).thenReturn(Optional.of(userProfile));
+    @Test
+    @DisplayName("FR3: Update User - Success (200 OK)")
+    void testUpdateUser_Success() {
+        // Arrange
+        when(userProfileRepository.findByIdAndNotDeleted("test-user-id")).thenReturn(Optional.of(userProfile));
         when(userProfileRepository.save(any(UserProfile.class))).thenReturn(userProfile);
 
-        // When
-        UserProfileResponse response = userProfileService.updateUser("user123", updateRequest);
+        // Act
+        UserProfileResponse response = userProfileService.updateUser("test-user-id", updateUserRequest);
 
-        // Then
+        // Assert
         assertNotNull(response);
-        verify(userProfileRepository).save(any(UserProfile.class));
+        verify(userProfileRepository).findByIdAndNotDeleted("test-user-id");
+        verify(userProfileRepository)
+                .save(argThat(profile -> profile.getBio().equals("Updated: Senior Software Developer") &&
+                        profile.getRoles().contains(UserRole.MODERATOR)));
     }
 
     @Test
-    void softDeleteUser_Success() {
-        // Given
-        when(userProfileRepository.findByIdAndNotDeleted("user123")).thenReturn(Optional.of(userProfile));
+    @DisplayName("FR3: Update User - Not Found (404 Not Found)")
+    void testUpdateUser_NotFound() {
+        // Arrange
+        when(userProfileRepository.findByIdAndNotDeleted("test-user-id")).thenReturn(Optional.empty());
+
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            userProfileService.updateUser("test-user-id", updateUserRequest);
+        });
+
+        assertTrue(exception.getMessage().contains("not found"));
+        verify(userProfileRepository, never()).save(any(UserProfile.class));
+    }
+
+    // ==========================================
+    // FR4: SOFT DELETE - DELETE /api/v1/users/{userId}
+    // ==========================================
+
+    @Test
+    @DisplayName("FR4: Soft Delete User - Success (204 No Content)")
+    void testSoftDeleteUser_Success() {
+        // Arrange
+        when(userProfileRepository.findByIdAndNotDeleted("test-user-id")).thenReturn(Optional.of(userProfile));
         when(userProfileRepository.save(any(UserProfile.class))).thenReturn(userProfile);
+        doNothing().when(userPostRepository).softDeleteAllByUserId(eq("test-user-id"), any(LocalDateTime.class));
 
-        // When
-        userProfileService.softDeleteUser("user123");
+        // Act
+        userProfileService.softDeleteUser("test-user-id");
 
-        // Then
-        verify(userProfileRepository).save(any(UserProfile.class));
-        verify(userPostRepository).softDeleteAllByUserId(eq("user123"), any(LocalDateTime.class));
+        // Assert
+        verify(userProfileRepository).save(argThat(profile -> profile.isDeleted() && profile.getDeletedAt() != null));
+        verify(userPostRepository).softDeleteAllByUserId(eq("test-user-id"), any(LocalDateTime.class));
     }
 
     @Test
-    void hardDeleteUser_Success() {
-        // Given
-        userProfile.markAsDeleted();
+    @DisplayName("FR4: Soft Delete - User Not Found (404 Not Found)")
+    void testSoftDeleteUser_NotFound() {
+        // Arrange
+        when(userProfileRepository.findByIdAndNotDeleted("test-user-id")).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(ResourceNotFoundException.class, () -> {
+            userProfileService.softDeleteUser("test-user-id");
+        });
+    }
+
+    // ==========================================
+    // FR5: HARD DELETE - POST /api/v1/users/{userId}/purge
+    // ==========================================
+
+    @Test
+    @DisplayName("FR5: Hard Delete User - Success After Grace Period (200 OK)")
+    void testHardDeleteUser_Success() {
+        // Arrange
+        userProfile.setDeleted(true);
         userProfile.setDeletedAt(LocalDateTime.now().minusHours(25)); // Past grace period
 
-        when(userProfileRepository.findById("user123")).thenReturn(Optional.of(userProfile));
+        when(userProfileRepository.findById("test-user-id")).thenReturn(Optional.of(userProfile));
 
-        // When
-        userProfileService.hardDeleteUser("user123");
+        // Act
+        userProfileService.hardDeleteUser("test-user-id");
 
-        // Then
-        verify(userPreferencesRepository).deleteByUserId("user123");
-        verify(userPostRepository).deleteByUserId("user123");
-        verify(userProfileRepository).delete(userProfile);
+        // Assert
+        verify(userPreferencesRepository).deleteByUserId("test-user-id");
+        verify(userPostRepository).deleteByUserId("test-user-id");
+        verify(userProfileRepository).delete(any(UserProfile.class));
     }
 
     @Test
-    void hardDeleteUser_GracePeriodNotElapsed() {
-        // Given
-        userProfile.markAsDeleted();
-        userProfile.setDeletedAt(LocalDateTime.now().minusHours(12)); // Within grace period
+    @DisplayName("FR5: Hard Delete - Grace Period Not Elapsed (403 Forbidden)")
+    void testHardDeleteUser_GracePeriodNotElapsed() {
+        // Arrange
+        ReflectionTestUtils.setField(userProfileService, "gracePeroidHours", 24); // Set grace period to 24 hours
+        userProfile.setDeleted(true);
+        userProfile.setDeletedAt(LocalDateTime.now().minusHours(1)); // Within grace period (24 hours default)
 
-        when(userProfileRepository.findById("user123")).thenReturn(Optional.of(userProfile));
+        when(userProfileRepository.findById("test-user-id")).thenReturn(Optional.of(userProfile));
 
-        // When & Then
-        assertThrows(BusinessRuleViolationException.class,
-                () -> userProfileService.hardDeleteUser("user123"));
+        // Act & Assert
+        BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
+            userProfileService.hardDeleteUser("test-user-id");
+        });
+
+        assertTrue(exception.getMessage().contains("Grace period"));
     }
 
     @Test
-    void hardDeleteUser_NotSoftDeleted() {
-        // Given
-        when(userProfileRepository.findById("user123")).thenReturn(Optional.of(userProfile));
+    @DisplayName("FR5: Hard Delete - User Not Soft Deleted (403 Forbidden)")
+    void testHardDeleteUser_UserNotSoftDeleted() {
+        // Arrange
+        userProfile.setDeleted(false); // Not soft deleted
 
-        // When & Then
-        assertThrows(BusinessRuleViolationException.class,
-                () -> userProfileService.hardDeleteUser("user123"));
+        when(userProfileRepository.findById("test-user-id")).thenReturn(Optional.of(userProfile));
+
+        // Act & Assert
+        BusinessRuleViolationException exception = assertThrows(BusinessRuleViolationException.class, () -> {
+            userProfileService.hardDeleteUser("test-user-id");
+        });
+
+        assertTrue(exception.getMessage().contains("soft-deleted"));
+    }
+
+    // ==========================================
+    // HELPER METHODS TESTS
+    // ==========================================
+
+    @Test
+    @DisplayName("Helper: isUserActiveById - Active User Returns True")
+    void testIsUserActiveById_ActiveUser() {
+        // Arrange
+        when(userProfileRepository.findByIdAndNotDeleted("test-user-id")).thenReturn(Optional.of(userProfile));
+
+        // Act
+        boolean isActive = userProfileService.isUserActiveById("test-user-id");
+
+        // Assert
+        assertTrue(isActive);
     }
 
     @Test
-    void isUserActiveById_True() {
-        // Given
-        when(userProfileRepository.findByIdAndNotDeleted("user123")).thenReturn(Optional.of(userProfile));
+    @DisplayName("Helper: isUserActiveById - Inactive User Returns False")
+    void testIsUserActiveById_InactiveUser() {
+        // Arrange
+        when(userProfileRepository.findByIdAndNotDeleted("test-user-id")).thenReturn(Optional.empty());
 
-        // When
-        boolean result = userProfileService.isUserActiveById("user123");
+        // Act
+        boolean isActive = userProfileService.isUserActiveById("test-user-id");
 
-        // Then
-        assertTrue(result);
+        // Assert
+        assertFalse(isActive);
+    }
+
+    // ==========================================
+    // EDGE CASES AND BOUNDARY TESTS
+    // ==========================================
+
+    @Test
+    @DisplayName("Edge Case: Create User with Empty Bio")
+    void testCreateUser_EmptyBio() {
+        // Arrange
+        createUserRequest.setBio("");
+        when(userProfileRepository.existsByUsername("johndoe")).thenReturn(false);
+        when(userProfileRepository.existsByEmail("john@example.com")).thenReturn(false);
+        when(userProfileRepository.save(any(UserProfile.class))).thenReturn(userProfile);
+
+        // Act
+        UserProfileResponse response = userProfileService.createUser(createUserRequest);
+
+        // Assert
+        assertNotNull(response);
     }
 
     @Test
-    void isUserActiveById_False() {
-        // Given
-        when(userProfileRepository.findByIdAndNotDeleted("user123")).thenReturn(Optional.empty());
+    @DisplayName("Edge Case: Update User with Multiple Roles")
+    void testUpdateUser_MultipleRoles() {
+        // Arrange
+        updateUserRequest.setRoles(Set.of(UserRole.USER, UserRole.MODERATOR, UserRole.ADMIN));
+        when(userProfileRepository.findByIdAndNotDeleted("test-user-id")).thenReturn(Optional.of(userProfile));
+        when(userProfileRepository.save(any(UserProfile.class))).thenReturn(userProfile);
 
-        // When
-        boolean result = userProfileService.isUserActiveById("user123");
+        // Act
+        UserProfileResponse response = userProfileService.updateUser("test-user-id", updateUserRequest);
 
-        // Then
-        assertFalse(result);
+        // Assert
+        assertNotNull(response);
+        verify(userProfileRepository).save(argThat(profile -> profile.getRoles().size() == 3 &&
+                profile.getRoles().contains(UserRole.ADMIN)));
     }
 }
