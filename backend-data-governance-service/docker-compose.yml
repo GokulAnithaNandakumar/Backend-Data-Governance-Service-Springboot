@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  # Spring Boot Application (using MongoDB Atlas)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: data-governance-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MONGODB_URI: mongodb+srv://gokul:gokul@cluster0.bdso00i.mongodb.net/data_governance_db?retryWrites=true&w=majority&appName=Cluster0
+      MONGODB_DATABASE: data_governance_db
+      GRACE_PERIOD_HOURS: 24
+    volumes:
+      - app_logs:/app/logs
+
+volumes:
+  app_logs:
+    driver: local

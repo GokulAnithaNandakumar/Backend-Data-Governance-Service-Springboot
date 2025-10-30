@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: backend-data-governance-service
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb+srv://gokul:gokul@cluster0.bdso00i.mongodb.net/data_governance_db?retryWrites=true&w=majority&appName=Cluster0}
+      database: ${MONGODB_DATABASE:data_governance_db}
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api/v1
+
+# Application specific configurations
+app:
+  data-governance:
+    hard-delete-grace-period-hours: ${GRACE_PERIOD_HOURS:24}
+    audit:
+      enabled: true
+    validation:
+      email-format: "^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})$"
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging configuration for Docker
+logging:
+  level:
+    com.datagovernance: INFO
+    org.springframework.data.mongodb: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+  file:
+    name: "/app/logs/application.log"
+
+# SpringDoc OpenAPI configuration
+# SpringDoc OpenAPI configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    enabled: true
+  show-actuator: false
