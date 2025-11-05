@@ -1,23 +1,29 @@
 // API Types matching Spring Boot backend
 
 export interface UserProfile {
-  userId: string
+  id: string
+  username: string
   email: string
   firstName: string
   lastName: string
+  fullName: string
   roles: UserRole[]
+  bio?: string
+  profileImageUrl?: string
   createdAt: string
   updatedAt?: string
-  deleted: boolean
+  deleted?: boolean
   deletedAt?: string
 }
 
 export interface CreateUserRequest {
-  userId: string
+  username: string
   email: string
   firstName: string
   lastName: string
   roles: UserRole[]
+  bio?: string
+  profileImageUrl?: string
 }
 
 export interface UpdateUserRequest {
@@ -45,20 +51,30 @@ export interface UpdateUserPreferencesRequest {
 }
 
 export interface UserPost {
-  postId: string
-  authorId: string
+  id: string
+  userId: string
   title: string
   content: string
+  imageUrls?: string[]
+  tags?: string[]
+  isPublic: boolean
+  status: string
+  viewCount: number
+  likeCount: number
+  commentCount: number
   createdAt: string
   updatedAt?: string
-  deleted: boolean
+  deleted?: boolean
   deletedAt?: string
 }
 
 export interface CreatePostRequest {
-  authorId: string
   title: string
   content: string
+  imageUrls?: string[]
+  tags?: string[]
+  isPublic?: boolean
+  status?: string
 }
 
 export interface OperationAcknowledgmentResponse {

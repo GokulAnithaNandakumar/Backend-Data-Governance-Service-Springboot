@@ -4,7 +4,16 @@ import { useQuery } from '@tanstack/react-query'
 import { UserCircle, Activity, Users, FileText, Plus, Download, Settings } from 'lucide-react'
 import { healthApi, statisticsApi } from '@/lib/services'
 
-export function DashboardOverview() {
+interface DashboardOverviewProps {
+  initialStats?: {
+    totalUsers: number
+    totalPosts: number
+    totalPreferences: number
+    systemHealth: string
+  }
+}
+
+export function DashboardOverview({ initialStats }: DashboardOverviewProps) {
   const { data: healthData, isLoading: healthLoading } = useQuery({
     queryKey: ['health'],
     queryFn: healthApi.checkHealth,
@@ -15,6 +24,12 @@ export function DashboardOverview() {
     queryKey: ['dashboard-stats'],
     queryFn: statisticsApi.getDashboardStats,
     refetchInterval: 60000, // Check every minute
+    initialData: initialStats ? {
+      totalUsers: initialStats.totalUsers,
+      activeUsers: initialStats.totalUsers, // Assuming all are active for now
+      totalPosts: initialStats.totalPosts,
+      activePosts: initialStats.totalPosts, // Assuming all are active for now
+    } : undefined,
   })
 
   const cards = [

@@ -1,15 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Plus, FileText, Trash2, User, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { userPostsApi } from '@/lib/services'
-import type { CreatePostRequest } from '@/types/api'
+import { userPostsApi, userProfileApi } from '@/lib/services'
+import type { CreatePostRequest, UserPost } from '@/types/api'
 
-export function UserPostsManager() {
-  const [selectedUserId, setSelectedUserId] = useState('john.doe')
+interface UserPostsManagerProps {
+  initialPosts?: UserPost[]
+}
+
+export function UserPostsManager({ initialPosts = [] }: UserPostsManagerProps) {
+  const [selectedUserId, setSelectedUserId] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
 
   const queryClient = useQueryClient()
@@ -20,6 +24,29 @@ export function UserPostsManager() {
     reset,
     formState: { errors },
   } = useForm<CreatePostRequest>()
+
+  // Get all users from API
+  const { data: users, isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => userProfileApi.getAllUsers(),
+  })
+
+  // Reset selectedUserId if the selected user is no longer available (soft-deleted)
+  useEffect(() => {
+    if (selectedUserId && users) {
+      const activeUsers = users.filter(user => !user.deleted)
+      const isSelectedUserActive = activeUsers.some(user => user.id === selectedUserId)
+      if (!isSelectedUserActive) {
+        setSelectedUserId('')
+      }
+    }
+  }, [users, selectedUserId])
+
+  const { data: allPosts, isLoading: allPostsLoading } = useQuery({
+    queryKey: ['posts'],
+    queryFn: () => userPostsApi.getAllPosts(),
+    initialData: initialPosts,
+  })
 
   const { data: userPosts, isLoading: postsLoading } = useQuery({
     queryKey: ['user-posts', selectedUserId],
@@ -52,33 +79,8 @@ export function UserPostsManager() {
   })
 
   const onSubmit = (data: CreatePostRequest) => {
-    createPostMutation.mutate({
-      ...data,
-      authorId: selectedUserId,
-    })
+    createPostMutation.mutate(data)
   }
-
-  // Sample posts data - in real app, this would come from the API
-  const samplePosts = [
-    {
-      postId: 'post-1',
-      authorId: 'john.doe',
-      title: 'Welcome to Data Governance',
-      content: 'This is an introduction to our data governance platform. We aim to provide comprehensive tools for managing user data effectively.',
-      createdAt: '2024-11-01T10:00:00',
-      deleted: false,
-    },
-    {
-      postId: 'post-2',
-      authorId: 'john.doe',
-      title: 'Best Practices for Data Management',
-      content: 'Here are some key practices to follow when managing user data: 1. Always validate input, 2. Implement proper access controls, 3. Regular backups...',
-      createdAt: '2024-11-02T15:30:00',
-      deleted: false,
-    },
-  ]
-
-  const displayPosts = userPosts || samplePosts
 
   return (
     <div className="space-y-6">
@@ -104,14 +106,22 @@ export function UserPostsManager() {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Select Author
         </label>
-        <select
-          value={selectedUserId}
-          onChange={(e) => setSelectedUserId(e.target.value)}
-          className="block w-full max-w-xs border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="john.doe">John Doe</option>
-          <option value="jane.admin">Jane Admin</option>
-        </select>
+        {usersLoading ? (
+          <div className="text-sm text-gray-500">Loading users...</div>
+        ) : (
+          <select
+            value={selectedUserId}
+            onChange={(e) => setSelectedUserId(e.target.value)}
+            className="block w-full max-w-xs border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select a user</option>
+            {users?.filter(user => !user.deleted).map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.firstName} {user.lastName} ({user.username})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Create Post Form */}
@@ -183,33 +193,31 @@ export function UserPostsManager() {
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900 flex items-center">
             <FileText className="h-5 w-5 mr-2" />
-            Posts by {selectedUserId} ({displayPosts.length})
+            Posts by {selectedUserId} ({userPosts?.length || 0})
           </h3>
         </div>
 
         {postsLoading ? (
           <div className="p-6 text-center">Loading posts...</div>
-        ) : displayPosts.length === 0 ? (
+        ) : !userPosts || userPosts.length === 0 ? (
           <div className="p-6 text-center">
             <FileText className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No posts found</h3>
             <p className="mt-1 text-sm text-gray-500">
-              This user hasn't created any posts yet.
+              {selectedUserId ? "This user hasn't created any posts yet." : "Select a user to view their posts."}
             </p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {displayPosts.map((post) => (
-              <div key={post.postId} className="p-6">
+            {userPosts.map((post) => (
+              <div key={post.id} className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
                       <h4 className="text-lg font-medium text-gray-900">{post.title}</h4>
-                      {!post.deleted && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Active
-                        </span>
-                      )}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {post.status}
+                      </span>
                     </div>
 
                     <p className="text-gray-700 mb-4 line-clamp-3">{post.content}</p>
@@ -217,21 +225,21 @@ export function UserPostsManager() {
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
                       <div className="flex items-center">
                         <User className="h-4 w-4 mr-1" />
-                        {post.authorId}
+                        {post.userId}
                       </div>
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-1" />
                         {new Date(post.createdAt).toLocaleDateString()}
                       </div>
                       <div className="text-xs text-gray-400">
-                        ID: {post.postId}
+                        ID: {post.id}
                       </div>
                     </div>
                   </div>
 
                   <div className="ml-4 flex items-center space-x-2">
                     <button
-                      onClick={() => deletePostMutation.mutate(post.postId)}
+                      onClick={() => deletePostMutation.mutate(post.id)}
                       disabled={deletePostMutation.isPending}
                       className="text-red-400 hover:text-red-600 disabled:opacity-50"
                       title="Delete post"
@@ -259,7 +267,7 @@ export function UserPostsManager() {
                   Total Posts
                 </dt>
                 <dd className="text-lg font-medium text-gray-900">
-                  {displayPosts.length}
+                  {userPosts?.length || 0}
                 </dd>
               </dl>
             </div>
@@ -277,7 +285,7 @@ export function UserPostsManager() {
                   Active Posts
                 </dt>
                 <dd className="text-lg font-medium text-gray-900">
-                  {displayPosts.filter(p => !p.deleted).length}
+                  {userPosts?.filter(p => p.status === 'PUBLISHED').length || 0}
                 </dd>
               </dl>
             </div>
@@ -295,8 +303,8 @@ export function UserPostsManager() {
                   Latest Post
                 </dt>
                 <dd className="text-lg font-medium text-gray-900">
-                  {displayPosts.length > 0
-                    ? new Date(Math.max(...displayPosts.map(p => new Date(p.createdAt).getTime()))).toLocaleDateString()
+                  {userPosts && userPosts.length > 0
+                    ? new Date(Math.max(...userPosts.map(p => new Date(p.createdAt).getTime()))).toLocaleDateString()
                     : 'None'
                   }
                 </dd>

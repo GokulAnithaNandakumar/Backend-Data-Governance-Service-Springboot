@@ -29,5 +29,7 @@ public class UserProfileResponse {
     private String profileImageUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Boolean deleted;
+    private LocalDateTime deletedAt;
     private List<AuditEntry> auditTrail;
 }

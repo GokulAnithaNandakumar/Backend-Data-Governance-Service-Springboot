@@ -1,13 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Settings, Save, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { userPreferencesApi } from '@/lib/services'
+import { userPreferencesApi, userProfileApi } from '@/lib/services'
+import type { UserProfile, UserPreferences } from '@/types/api'
 
-export function UserPreferencesManager() {
-  const [selectedUserId, setSelectedUserId] = useState('john.doe')
+interface UserPreferencesManagerProps {
+  initialUsers?: UserProfile[]
+  initialPreferences?: UserPreferences[]
+}
+
+export function UserPreferencesManager({ initialUsers = [], initialPreferences = [] }: UserPreferencesManagerProps) {
+  const [selectedUserId, setSelectedUserId] = useState('')
   const [preferences, setPreferences] = useState({
     theme: 'light',
     language: 'en',
@@ -20,6 +26,24 @@ export function UserPreferencesManager() {
   })
 
   const queryClient = useQueryClient()
+
+  // Get all users from API
+  const { data: users, isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => userProfileApi.getAllUsers(),
+    initialData: initialUsers,
+  })
+
+  // Reset selectedUserId if the selected user is no longer available (soft-deleted)
+  useEffect(() => {
+    if (selectedUserId && users) {
+      const activeUsers = users.filter(user => !user.deleted)
+      const isSelectedUserActive = activeUsers.some(user => user.id === selectedUserId)
+      if (!isSelectedUserActive) {
+        setSelectedUserId('')
+      }
+    }
+  }, [users, selectedUserId])
 
   const { data: userPreferences, isLoading } = useQuery({
     queryKey: ['user-preferences', selectedUserId],
@@ -89,14 +113,22 @@ export function UserPreferencesManager() {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Select User
         </label>
-        <select
-          value={selectedUserId}
-          onChange={(e) => setSelectedUserId(e.target.value)}
-          className="block w-full max-w-xs border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        >
-          <option value="john.doe">John Doe</option>
-          <option value="jane.admin">Jane Admin</option>
-        </select>
+        {usersLoading ? (
+          <div className="text-sm text-gray-500">Loading users...</div>
+        ) : (
+          <select
+            value={selectedUserId}
+            onChange={(e) => setSelectedUserId(e.target.value)}
+            className="block w-full max-w-xs border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select a user</option>
+            {users?.filter(user => !user.deleted).map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.firstName} {user.lastName} ({user.username})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

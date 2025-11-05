@@ -5,20 +5,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Search, Trash2, Edit, User } from 'lucide-react'
+import { Plus, Search, Trash2, Edit, User, UserX } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { userProfileApi } from '@/lib/services'
-import type { CreateUserRequest, UpdateUserRequest, UserRole } from '@/types/api'
+import type { CreateUserRequest, UpdateUserRequest, UserRole, UserProfile } from '@/types/api'
 
 const createUserSchema = z.object({
-  userId: z.string().min(3, 'User ID must be at least 3 characters'),
+  username: z.string().min(3, 'Username must be at least 3 characters'),
   email: z.string().email('Invalid email address'),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   roles: z.array(z.enum(['USER', 'ADMIN', 'MODERATOR'])).min(1, 'At least one role is required'),
 })
 
-export function UserProfileManager() {
+interface UserProfileManagerProps {
+  initialUsers?: UserProfile[]
+}
+
+export function UserProfileManager({ initialUsers = [] }: UserProfileManagerProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
@@ -34,27 +38,12 @@ export function UserProfileManager() {
     resolver: zodResolver(createUserSchema),
   })
 
-  // Sample data - in real app, this would be a query to get all users
-  const [users] = useState([
-    {
-      userId: 'john.doe',
-      email: 'john@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      roles: ['USER'] as UserRole[],
-      createdAt: '2024-11-01T10:00:00',
-      deleted: false,
-    },
-    {
-      userId: 'jane.admin',
-      email: 'jane@example.com',
-      firstName: 'Jane',
-      lastName: 'Admin',
-      roles: ['ADMIN'] as UserRole[],
-      createdAt: '2024-11-02T10:00:00',
-      deleted: false,
-    },
-  ])
+  // Get all users from API
+  const { data: users, isLoading: usersLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => userProfileApi.getAllUsers(),
+    initialData: initialUsers,
+  })
 
   const { data: selectedUser, isLoading: userLoading } = useQuery({
     queryKey: ['user-profile', selectedUserId],
@@ -78,7 +67,7 @@ export function UserProfileManager() {
   const deleteUserMutation = useMutation({
     mutationFn: userProfileApi.softDeleteProfile,
     onSuccess: () => {
-      toast.success('User profile deleted successfully!')
+      toast.success('User profile soft deleted successfully!')
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },
     onError: (error: any) => {
@@ -86,17 +75,28 @@ export function UserProfileManager() {
     },
   })
 
+  const hardDeleteUserMutation = useMutation({
+    mutationFn: userProfileApi.hardDeleteProfile,
+    onSuccess: () => {
+      toast.success('User profile permanently deleted!')
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to permanently delete user profile')
+    },
+  })
+
   const onSubmit = (data: CreateUserRequest) => {
     createUserMutation.mutate(data)
   }
 
-  const filteredUsers = users.filter(
+  const filteredUsers = users?.filter(
     (user) =>
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.userId.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+      user.username.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || []
 
   return (
     <div className="space-y-6">
@@ -139,48 +139,96 @@ export function UserProfileManager() {
               Users ({filteredUsers.length})
             </h3>
           </div>
-          <div className="divide-y divide-gray-200">
-            {filteredUsers.map((user) => (
+          {usersLoading ? (
+            <div className="p-6 text-center">
+              <div className="text-sm text-gray-500">Loading users...</div>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="p-6 text-center">
+              <User className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {searchTerm ? 'Try adjusting your search criteria.' : 'No users have been created yet.'}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {filteredUsers.map((user) => (
               <div
-                key={user.userId}
-                className={`p-6 hover:bg-gray-50 cursor-pointer ${
-                  selectedUserId === user.userId ? 'bg-blue-50' : ''
+                key={user.id}
+                className={`p-6 border-l-4 ${
+                  selectedUserId === user.id ? 'bg-blue-50 border-l-blue-500' :
+                  user.deleted ? 'bg-gray-100 border-l-gray-400 opacity-75 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer border-l-transparent'
                 }`}
-                onClick={() => setSelectedUserId(user.userId)}
+                onClick={() => {
+                  if (!user.deleted) {
+                    setSelectedUserId(user.id)
+                  }
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                        <User className="h-6 w-6 text-gray-600" />
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                        user.deleted ? 'bg-gray-300' : 'bg-gray-300'
+                      }`}>
+                        {user.deleted ? (
+                          <UserX className="h-6 w-6 text-gray-600" />
+                        ) : (
+                          <User className="h-6 w-6 text-gray-600" />
+                        )}
                       </div>
                     </div>
                     <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className={`text-sm font-medium ${user.deleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                         {user.firstName} {user.lastName}
+                        {user.deleted && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">DELETED</span>}
                       </div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                      <div className="text-xs text-gray-400">ID: {user.userId}</div>
+                      <div className={`text-sm ${user.deleted ? 'text-gray-400' : 'text-gray-500'}`}>{user.email}</div>
+                      <div className={`text-xs ${user.deleted ? 'text-gray-400' : 'text-gray-400'}`}>Username: {user.username}</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      user.deleted ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-blue-800'
+                    }`}>
                       {user.roles.join(', ')}
                     </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deleteUserMutation.mutate(user.userId)
-                      }}
-                      className="text-red-400 hover:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {!user.deleted ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm('Are you sure you want to soft delete this user? This action can be reversed.')) {
+                            deleteUserMutation.mutate(user.id)
+                          }
+                        }}
+                        disabled={deleteUserMutation.isPending}
+                        className="text-yellow-500 hover:text-yellow-700 disabled:opacity-50"
+                        title="Soft Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm('Are you sure you want to permanently delete this user? This action CANNOT be reversed!')) {
+                            hardDeleteUserMutation.mutate(user.id)
+                          }
+                        }}
+                        disabled={hardDeleteUserMutation.isPending}
+                        className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                        title="Hard Delete (Permanent)"
+                      >
+                        <UserX className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* User Details or Create Form */}
@@ -201,14 +249,14 @@ export function UserProfileManager() {
               </div>
               <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">User ID</label>
+                  <label className="block text-sm font-medium text-gray-700">Username</label>
                   <input
-                    {...register('userId')}
+                    {...register('username')}
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="e.g., john.doe"
                   />
-                  {errors.userId && (
-                    <p className="mt-1 text-sm text-red-600">{errors.userId.message}</p>
+                  {errors.username && (
+                    <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
                   )}
                 </div>
 
@@ -305,7 +353,7 @@ export function UserProfileManager() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-500">User ID</label>
-                        <p className="mt-1 text-sm text-gray-900">{selectedUser.userId}</p>
+                        <p className="mt-1 text-sm text-gray-900">{selectedUser.username}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-500">Email</label>

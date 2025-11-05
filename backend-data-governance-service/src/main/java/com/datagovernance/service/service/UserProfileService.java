@@ -226,6 +226,8 @@ public class UserProfileService {
         response.setProfileImageUrl(user.getProfileImageUrl());
         response.setCreatedAt(user.getCreatedAt());
         response.setUpdatedAt(user.getUpdatedAt());
+        response.setDeleted(user.isDeleted());
+        response.setDeletedAt(user.getDeletedAt());
         response.setAuditTrail(user.getAuditTrail());
         return response;
     }

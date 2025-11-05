@@ -29,15 +29,15 @@ public class CorsFilter implements Filter {
         HttpServletResponse response = (HttpServletResponse) res;
 
         String origin = request.getHeader("Origin");
-        
+
         // Allow specific origins
         if (origin != null && (origin.equals("http://localhost:3000") || origin.equals("http://localhost:3001"))) {
             response.setHeader("Access-Control-Allow-Origin", origin);
         }
 
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-        response.setHeader("Access-Control-Allow-Headers", 
-            "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control");
+        response.setHeader("Access-Control-Allow-Headers",
+                "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control");
         response.setHeader("Access-Control-Allow-Credentials", "true");
         response.setHeader("Access-Control-Max-Age", "3600");
 
