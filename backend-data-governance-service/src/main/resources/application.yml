@@ -17,6 +17,22 @@ server:
   servlet:
     context-path: /api/v1
 
+# CORS configuration
+cors:
+  allowed-origins:
+    - http://localhost:3000
+    - http://localhost:3001
+  allowed-methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+    - PATCH
+  allowed-headers: "*"
+  allow-credentials: true
+  max-age: 3600
+
 # Application specific configurations
 app:
   data-governance:

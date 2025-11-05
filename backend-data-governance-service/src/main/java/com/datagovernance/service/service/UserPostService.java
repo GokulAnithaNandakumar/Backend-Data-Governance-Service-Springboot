@@ -103,6 +103,18 @@ public class UserPostService {
     }
 
     /**
+     * Retrieves all posts (including soft-deleted for admin purposes)
+     */
+    public List<UserPostResponse> getAllPosts() {
+        log.info("Retrieving all posts");
+
+        List<UserPost> posts = userPostRepository.findAll();
+        return posts.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Maps UserPost entity to UserPostResponse DTO
      */
     private UserPostResponse mapToResponse(UserPost post) {

@@ -59,3 +59,8 @@ target/
 # Logs
 logs/
 *.log
+data-governance-frontend/.env.example
+/data-governance-frontend/node_modules
+INTEGRATION_GUIDE.md
+SPRING_TUTORIAL.md
+/data-governance-frontend/.next

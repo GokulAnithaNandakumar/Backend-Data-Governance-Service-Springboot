@@ -51,6 +51,17 @@ public class UserPostController {
     }
 
     /**
+     * GET /api/v1/posts - READ ALL POSTS
+     * Retrieves all posts (including soft-deleted for admin purposes)
+     */
+    @GetMapping("/posts")
+    public ResponseEntity<List<UserPostResponse>> getAllPosts() {
+        log.info("Received request to get all posts");
+        List<UserPostResponse> response = userPostService.getAllPosts();
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * FR10: DELETE /api/v1/posts/{postId} - SOFT DELETE POST
      * Marks the Post Entity as deleted
      */

@@ -13,6 +13,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.util.List;
 
 /**
  * REST Controller for User Profile operations
@@ -49,6 +50,17 @@ public class UserProfileController {
     public ResponseEntity<UserProfileResponse> getUserById(@PathVariable String userId) {
         log.info("Received request to get user with ID: {}", userId);
         UserProfileResponse response = userProfileService.getUserById(userId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/v1/users - READ ALL USERS
+     * Retrieves all User Profiles (including soft-deleted for admin purposes)
+     */
+    @GetMapping
+    public ResponseEntity<List<UserProfileResponse>> getAllUsers() {
+        log.info("Received request to get all users");
+        List<UserProfileResponse> response = userProfileService.getAllUsers();
         return ResponseEntity.ok(response);
     }
 

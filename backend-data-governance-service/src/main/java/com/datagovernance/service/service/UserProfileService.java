@@ -199,6 +199,18 @@ public class UserProfileService {
     }
 
     /**
+     * Retrieves all user profiles (including soft-deleted for admin purposes)
+     */
+    public List<UserProfileResponse> getAllUsers() {
+        log.info("Retrieving all users");
+
+        List<UserProfile> users = userProfileRepository.findAll();
+        return users.stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
      * Maps UserProfile entity to UserProfileResponse DTO
      */
     private UserProfileResponse mapToResponse(UserProfile user) {
