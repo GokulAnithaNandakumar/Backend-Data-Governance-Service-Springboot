@@ -15,7 +15,7 @@ interface EditPreferencesFormProps {
 export function EditPreferencesForm({ user, preferences }: EditPreferencesFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  
+
   const [formData, setFormData] = useState({
     theme: preferences?.theme || 'light',
     language: preferences?.language || 'en',
@@ -30,9 +30,9 @@ export function EditPreferencesForm({ user, preferences }: EditPreferencesFormPr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     console.log('Submitting preferences:', formData)
-    
+
     startTransition(async () => {
       const result = await updateUserPreferences(user.id, formData)
       if (result.success) {
@@ -40,7 +40,7 @@ export function EditPreferencesForm({ user, preferences }: EditPreferencesFormPr
         router.push(`/users/${user.id}`)
       } else {
         // Extract clean error message
-        const errorMessage = result.message.includes('API Error') 
+        const errorMessage = result.message.includes('API Error')
           ? result.message.split(': ').pop() || result.message
           : result.message
         toast.error(errorMessage)
@@ -52,13 +52,13 @@ export function EditPreferencesForm({ user, preferences }: EditPreferencesFormPr
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
     const checked = (e.target as HTMLInputElement).checked
-    
+
     console.log('Input change:', { name, value, type, checked })
-    
+
     setFormData(prev => {
-      const newData = { 
-        ...prev, 
-        [name]: type === 'checkbox' ? checked : value 
+      const newData = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
       }
       console.log('Updated formData:', newData)
       return newData
