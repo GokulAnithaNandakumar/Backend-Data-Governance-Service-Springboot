@@ -114,6 +114,20 @@ export async function getSystemStats(options: { revalidate?: number | false } = 
   }
 }
 
+export async function getHealthStatus(options: { revalidate?: number | false } = {}) {
+  console.log('Fetching health status from:', `${process.env.API_BASE_URL || 'http://localhost:8080/api/v1'}/actuator/health`)
+
+  const health = await serverApiRequest('/actuator/health', {
+    next: {
+      revalidate: options.revalidate ?? 30, // Health checks every 30 seconds
+      tags: ['health']
+    },
+  })
+
+  console.log('Health status response:', health)
+  return health || { status: 'Unknown' }
+}
+
 // Fresh data fetchers (no-store) for real-time data
 export async function getFreshUsers(): Promise<UserProfile[]> {
   return getUsers({ revalidate: false })

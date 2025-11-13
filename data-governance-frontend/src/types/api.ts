@@ -36,10 +36,17 @@ export interface UserPreferences {
   userId: string
   theme: string
   language: string
-  notifications: boolean
-  emailUpdates: boolean
+  emailNotifications: boolean
+  pushNotifications: boolean
+  smsNotifications: boolean
+  profileVisible: boolean
+  showEmail: boolean
+  showLastSeen: boolean
+  contentFilter: string
   customSettings: Record<string, any>
+  createdAt: string
   updatedAt: string
+  deleted: boolean
 }
 
 export interface UpdateUserPreferencesRequest {

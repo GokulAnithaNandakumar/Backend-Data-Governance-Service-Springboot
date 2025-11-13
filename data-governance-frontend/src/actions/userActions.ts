@@ -98,14 +98,30 @@ export async function createUser(formData: FormData) {
   }
 }
 
-export async function updateUser(userId: string, formData: FormData) {
+export async function updateUser(userId: string, userData: any) {
   try {
-    const rawData = {
-      firstName: formData.get('firstName') as string,
-      lastName: formData.get('lastName') as string,
-      roles: formData.getAll('roles') as UserRole[],
-      bio: formData.get('bio') as string,
-      profileImageUrl: formData.get('profileImageUrl') as string,
+    let rawData: any
+
+    // Handle both FormData and object inputs
+    if (userData instanceof FormData) {
+      rawData = {
+        firstName: userData.get('firstName') as string,
+        lastName: userData.get('lastName') as string,
+        roles: userData.getAll('roles') as UserRole[],
+        bio: userData.get('bio') as string,
+        profileImageUrl: userData.get('profileImageUrl') as string,
+      }
+    } else {
+      // Handle object input from EditUserForm
+      const nameParts = userData.fullName?.split(' ') || []
+      rawData = {
+        firstName: nameParts[0] || '',
+        lastName: nameParts.slice(1).join(' ') || '',
+        roles: ['USER'], // Default role
+        bio: userData.bio || '',
+        profileImageUrl: '',
+        email: userData.email,
+      }
     }
 
     // Remove empty values
@@ -141,21 +157,47 @@ export async function updateUser(userId: string, formData: FormData) {
   }
 }
 
+export async function updateUserPreferences(userId: string, preferencesData: any) {
+  try {
+    await apiRequest(`/users/${userId}/preferences`, {
+      method: 'PUT',
+      body: JSON.stringify(preferencesData),
+    })
+
+    // Revalidate preferences and user data
+    revalidatePath('/users')
+    revalidatePath(`/users/${userId}`)
+    revalidatePath(`/users/${userId}/preferences`)
+
+    return { success: true, message: 'Preferences updated successfully!' }
+  } catch (error) {
+    console.error('Update preferences error:', error)
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to update preferences'
+    }
+  }
+}
+
+// Update user status function with proper DELETE/restore endpoints
 export async function updateUserStatus(userId: string, status: 'active' | 'inactive') {
   try {
     // Server-side validation
     const validatedData = updateStatusSchema.parse({ status })
 
-    // For this action, we'll update user status by setting appropriate fields
-    // This depends on your backend implementation
-    await apiRequest(`/users/${userId}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        // Assuming status maps to some field in your backend
-        // Adjust based on your actual backend implementation
-        active: status === 'active',
-      }),
-    })
+    // For status update, we use the soft delete/restore endpoints
+    if (status === 'inactive') {
+      // Use soft delete endpoint
+      await apiRequest(`/users/${userId}`, {
+        method: 'DELETE',
+      })
+    } else {
+      // For reactivation, we might need a specific restore endpoint
+      // This depends on your backend implementation
+      await apiRequest(`/users/${userId}/restore`, {
+        method: 'POST',
+      })
+    }
 
     // Revalidate both users list and specific user page
     revalidatePath('/users')

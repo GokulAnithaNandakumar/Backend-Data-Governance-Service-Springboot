@@ -1,15 +1,14 @@
 import { Suspense } from 'react'
-import { Users, FileText, Settings, TrendingUp } from 'lucide-react'
-import { getCachedUsers, getCachedSystemStats, getAllPosts, getAllPreferences } from '@/lib/server-api'
+import { Users, FileText, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
+import { getUsers, getSystemStats } from '@/lib/server-api'
+import { UserProfile } from '@/types/api'
 
 export default async function HomePage() {
-  // Fetch data on the server with appropriate caching
-  const [users, stats, posts, preferences] = await Promise.all([
-    getCachedUsers(),
-    getCachedSystemStats(),
-    getAllPosts(),
-    getAllPreferences(),
+  // Fetch data on the server
+  const [users, stats] = await Promise.all([
+    getUsers(),
+    getSystemStats(),
   ])
 
   return (
@@ -46,7 +45,7 @@ export default async function HomePage() {
                 <span className="text-sm font-medium text-gray-600">Active Users</span>
               </div>
               <div className="text-2xl font-bold text-gray-900">
-                {users.filter(u => !u.deleted).length}
+                {users.filter((u: UserProfile) => !u.deleted).length}
               </div>
             </div>
           </div>
@@ -59,7 +58,7 @@ export default async function HomePage() {
                 <FileText className="h-5 w-5 text-purple-500" />
                 <span className="text-sm font-medium text-gray-600">Total Posts</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900">{posts.length}</div>
+              <div className="text-2xl font-bold text-gray-900">0</div>
             </div>
           </div>
         </div>
@@ -73,7 +72,9 @@ export default async function HomePage() {
                 }`} />
                 <span className="text-sm font-medium text-gray-600">System Health</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900">{stats.systemHealth || 'Unknown'}</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {stats.systemHealth === 'UP' ? 'Healthy' : stats.systemHealth || 'Unknown'}
+              </div>
             </div>
           </div>
         </div>
@@ -82,7 +83,6 @@ export default async function HomePage() {
       {/* Quick Actions */}
       <div className="bg-white rounded-lg border p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
-
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             href="/users"
@@ -119,9 +119,8 @@ export default async function HomePage() {
       {/* Recent Activity */}
       <div className="bg-white rounded-lg border p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h2>
-
         <div className="space-y-4">
-          {users.slice(0, 5).map((user) => (
+          {users.slice(0, 5).map((user: UserProfile) => (
             <div key={user.id} className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-50">
               <div className="flex-shrink-0">
                 {user.profileImageUrl ? (
@@ -149,7 +148,6 @@ export default async function HomePage() {
               </div>
             </div>
           ))}
-
           {users.length === 0 && (
             <div className="text-center py-8">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />

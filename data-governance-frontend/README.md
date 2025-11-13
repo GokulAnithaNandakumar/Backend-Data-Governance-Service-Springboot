@@ -88,7 +88,7 @@ export default async function UsersPage() {
 // lib/server-api.ts
 export async function getUsers() {
   return fetch('/api/users', {
-    next: { 
+    next: {
       revalidate: 60,      // Cache for 60 seconds
       tags: ['users']      // Tagged for selective revalidation
     }
@@ -97,7 +97,7 @@ export async function getUsers() {
 
 export async function getUser(id: string) {
   return fetch(`/api/users/${id}`, {
-    next: { 
+    next: {
       revalidate: 300,     // Cache for 5 minutes (more stable)
       tags: [`user-${id}`] // User-specific tags
     }
@@ -106,7 +106,7 @@ export async function getUser(id: string) {
 
 export async function getUserPosts(id: string) {
   return fetch(`/api/users/${id}/posts`, {
-    next: { 
+    next: {
       revalidate: 30,      // Cache for 30 seconds (frequent updates)
       tags: [`user-${id}-posts`]
     }
@@ -125,13 +125,13 @@ All data mutations use **Server Actions** with proper validation and cache reval
 export async function createUser(formData: FormData) {
   // Server-side validation
   const validatedData = createUserSchema.parse(rawData)
-  
+
   // API call
   await apiRequest('/users', { method: 'POST', body: JSON.stringify(validatedData) })
-  
+
   // Cache revalidation
   revalidatePath('/users')
-  
+
   return { success: true, message: 'User created successfully!' }
 }
 ```
@@ -175,13 +175,13 @@ describe('Server Actions', () => {
   it('should validate required fields', async () => {
     const formData = new FormData()
     // Missing required fields
-    
+
     const result = await createUser(formData)
-    
+
     expect(result.success).toBe(false)
     expect(result.message).toContain('required')
   })
-  
+
   it('should revalidate cache after user creation', async () => {
     // Test cache revalidation behavior
   })
