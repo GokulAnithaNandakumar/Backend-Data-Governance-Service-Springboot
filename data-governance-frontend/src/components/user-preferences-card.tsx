@@ -33,12 +33,12 @@ export function UserPreferencesCard({ preferences }: UserPreferencesCardProps) {
           </div>
           <div className="flex items-center space-x-2">
             <div className={`h-2 w-2 rounded-full ${
-              preferences.notifications ? 'bg-green-500' : 'bg-red-500'
+              preferences.pushNotifications ? 'bg-green-500' : 'bg-red-500'
             }`} />
             <span className={`text-sm ${
-              preferences.notifications ? 'text-green-600' : 'text-red-600'
+              preferences.pushNotifications ? 'text-green-600' : 'text-red-600'
             }`}>
-              {preferences.notifications ? 'Enabled' : 'Disabled'}
+              {preferences.pushNotifications ? 'Enabled' : 'Disabled'}
             </span>
           </div>
         </div>
@@ -50,12 +50,12 @@ export function UserPreferencesCard({ preferences }: UserPreferencesCardProps) {
           </div>
           <div className="flex items-center space-x-2">
             <div className={`h-2 w-2 rounded-full ${
-              preferences.emailUpdates ? 'bg-green-500' : 'bg-red-500'
+              preferences.emailNotifications ? 'bg-green-500' : 'bg-red-500'
             }`} />
             <span className={`text-sm ${
-              preferences.emailUpdates ? 'text-green-600' : 'text-red-600'
+              preferences.emailNotifications ? 'text-green-600' : 'text-red-600'
             }`}>
-              {preferences.emailUpdates ? 'Enabled' : 'Disabled'}
+              {preferences.emailNotifications ? 'Enabled' : 'Disabled'}
             </span>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { Users, Plus, Search } from 'lucide-react'
+import { Users, Plus, Search, ArrowLeft } from 'lucide-react'
 import { getUsers, getSystemStats } from '@/lib/server-api'
 import { UsersList } from '@/components/users-list'
 import { CreateUserForm } from '@/components/create-user-form'
@@ -35,13 +35,23 @@ export default async function UsersPage({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <Users className="h-8 w-8 text-blue-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-600">
-              Manage user profiles, roles, and permissions
-            </p>
+        <div className="flex items-center space-x-4">
+          <Link
+            href="/"
+            className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Home
+          </Link>
+          <div className="h-6 border-l border-gray-300" />
+          <div className="flex items-center space-x-3">
+            <Users className="h-8 w-8 text-blue-600" />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+              <p className="text-gray-600">
+                Manage user profiles, roles, and permissions
+              </p>
+            </div>
           </div>
         </div>
 

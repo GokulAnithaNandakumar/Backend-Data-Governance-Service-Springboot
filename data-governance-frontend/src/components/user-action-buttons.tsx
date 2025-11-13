@@ -32,18 +32,10 @@ export function UserActionButtons({ user }: UserActionButtonsProps) {
     }
   }
 
-  // For soft deleted users, show only hard delete button and view button
+  // For soft deleted users, show only hard delete button (no view button)
   if (user.deleted) {
     return (
       <div className="flex items-center space-x-1">
-        <Link
-          href={`/users/${user.id}`}
-          className="inline-flex items-center px-2 py-1 text-sm text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors"
-          title="View user"
-        >
-          <Eye className="h-4 w-4" />
-        </Link>
-
         <button
           onClick={handleHardDelete}
           disabled={isPending}
@@ -58,9 +50,7 @@ export function UserActionButtons({ user }: UserActionButtonsProps) {
         </button>
       </div>
     )
-  }
-
-  // For active users, show view button only
+  }  // For active users, show view button only
   return (
     <div className="flex items-center space-x-1">
       <Link
